@@ -47,4 +47,4 @@ export const firebaseConfig = {
   appId: "1:795839312344:web:b4897e1be6673708b482ad"
 };
 
-export const IS_FIREBASE_CONFIGURED = Boolean(FIREBASE_CONFIG.projectId);
+export const IS_FIREBASE_CONFIGURED = Boolean(firebaseConfig.projectId);
