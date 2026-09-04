@@ -117,6 +117,7 @@ export default function App() {
 
   const meName = players.find((p) => p.id === me)?.name;
   const completedSessions = sessions.filter((session) => session.date < today);
+  const previousSubstitutes = [...new Set(Object.values(substitutes).flat().map((substitute) => substitute.name))].sort();
   const playerStats = players.map((player) => {
     const missed = completedSessions.filter((session) => attendance[session.dateKey]?.[player.id]).length;
     return { ...player, attended: completedSessions.length - missed, missed };
@@ -271,7 +272,7 @@ export default function App() {
                       ))}
                     </div>
                     {sessionSubs.length > 0 && <p className="sub-list">Joining: {sessionSubs.map((sub) => sub.name).join(", ")}</p>}
-                    <SubstituteForm disabled={participantCount >= 4} onAdd={(name) => addSubstitute(session.key, name)} />
+                    <SubstituteForm listId={`previous-substitutes-${session.key}`} suggestions={previousSubstitutes} disabled={participantCount >= 4} onAdd={(name) => addSubstitute(session.key, name)} />
                   </div>
                 </div>
               );
@@ -293,7 +294,7 @@ export default function App() {
         <div className="stats-list">
           {playerStats.map((player) => {
             const percentage = completedSessions.length ? Math.round((player.attended / completedSessions.length) * 100) : 0;
-            return <div className="stat-row" key={player.id}><span>{player.name}</span><div className="stat-bar"><i style={{ width: `${percentage}%` }} /></div><strong>{percentage}%</strong><small>{player.missed} missed</small></div>;
+            return <div className="stat-row" key={player.id}><span>{player.name}</span><div className="stat-bar"><i style={{ width: `${percentage}%` }} /></div><strong>{percentage}%</strong><small>{player.attended} attended · {player.missed} missed</small></div>;
           })}
         </div>
       </section>
@@ -342,12 +343,12 @@ export default function App() {
   );
 }
 
-function SubstituteForm({ onAdd, disabled }) {
+function SubstituteForm({ listId, onAdd, suggestions, disabled }) {
   const [name, setName] = useState("");
   function submit(event) {
     event.preventDefault();
     onAdd(name);
     setName("");
   }
-  return <form className="sub-form" onSubmit={submit}><input value={name} onChange={(event) => setName(event.target.value)} placeholder={disabled ? "Training is full" : "Add substitute"} aria-label="Substitute name" disabled={disabled} /><button type="submit" disabled={disabled}>+</button></form>;
+  return <form className="sub-form" onSubmit={submit}><input value={name} onChange={(event) => setName(event.target.value)} list={listId} placeholder={disabled ? "Training is full" : "Add substitute"} aria-label="Substitute name" disabled={disabled} /><datalist id={listId}>{suggestions.map((suggestion) => <option key={suggestion} value={suggestion} />)}</datalist><button type="submit" disabled={disabled}>+</button></form>;
 }
