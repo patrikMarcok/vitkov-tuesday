@@ -165,7 +165,7 @@ export default function App() {
       )}
       {!me && !pickerOpen && (
         <div className="whoami">
-          <span className="whoami-label">Viewing only</span>
+          <span className="whoami-label">Choose your name to mark attendance</span>
           <button className="whoami-switch" onClick={() => setPickerOpen(true)}>
             I'm a player
           </button>
@@ -248,8 +248,8 @@ export default function App() {
                             (p.id === me ? " is-you" : "")
                           }
                           title={p.name + (isOut ? " — can't make it" : " — in")}
-                          onClick={() => toggle(session, p.id)}
-                          disabled={p.id !== me}
+                          onClick={() => (me ? toggle(session, p.id) : setPickerOpen(true))}
+                          disabled={Boolean(me) && p.id !== me}
                         >
                           {p.name.slice(0, 2).toUpperCase()}
                         </button>
@@ -332,12 +332,12 @@ export default function App() {
   );
 }
 
-function SubstituteForm({ onAdd }) {
+function SubstituteForm({ onAdd, disabled }) {
   const [name, setName] = useState("");
   function submit(event) {
     event.preventDefault();
     onAdd(name);
     setName("");
   }
-  return <form className="sub-form" onSubmit={submit}><input value={name} onChange={(event) => setName(event.target.value)} placeholder="Add substitute" aria-label="Substitute name" /><button type="submit">+</button></form>;
+  return <form className="sub-form" onSubmit={submit}><input value={name} onChange={(event) => setName(event.target.value)} placeholder={disabled ? "Training is full" : "Add substitute"} aria-label="Substitute name" disabled={disabled} /><button type="submit" disabled={disabled}>+</button></form>;
 }
