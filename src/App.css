@@ -265,6 +265,13 @@
   padding: 14px 16px;
 }
 
+.session-attendance {
+  display: grid;
+  flex: 0 1 290px;
+  gap: 8px;
+  min-width: 210px;
+}
+
 .session-card.is-next {
   border-color: var(--amber);
   box-shadow: 0 0 0 1px var(--amber);
@@ -320,6 +327,7 @@
   display: flex;
   gap: 6px;
   flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 .chip {
@@ -372,7 +380,8 @@
 }
 
 .sub-form {
-  flex: 0 0 138px;
+  width: 100%;
+  max-width: 290px;
 }
 
 .sub-form input {
@@ -385,10 +394,10 @@
 }
 
 .sub-list {
-  flex-basis: 100%;
-  margin: 7px 0 0 68px;
+  margin: 0;
   color: var(--amber);
   font-size: 12px;
+  line-height: 1.4;
 }
 
 .stats-section {
@@ -567,21 +576,25 @@
     flex-wrap: wrap;
   }
 
+  .session-attendance {
+    flex-basis: 100%;
+    min-width: 0;
+    padding-left: 68px;
+  }
+
   .chips {
     order: 3;
     width: 100%;
     justify-content: flex-start;
-    padding-left: 68px;
   }
 
   .sub-form {
     order: 4;
-    flex-basis: 100%;
-    margin-left: 68px;
+    max-width: none;
   }
 
   .sub-list {
-    margin-left: 68px;
+    order: 3;
   }
 
   .stat-row {

@@ -244,33 +244,35 @@ export default function App() {
                       {participantCount}/4 attending
                     </p>
                   </div>
-                  <div className="chips">
-                    {players.map((p) => {
-                      const isOut = outIds.includes(p.id);
-                      return (
-                        <button
-                          key={p.id}
-                          className={
-                            "chip " +
-                            (isOut ? "out" : "in") +
-                            (p.id === me ? " is-you" : "")
-                          }
-                          title={p.name + (isOut ? " — can't make it" : " — in")}
-                          onClick={() => (me ? toggle(session, p.id) : setPickerOpen(true))}
-                          disabled={Boolean(me) && p.id !== me}
-                        >
-                          {p.name.slice(0, 2).toUpperCase()}
+                  <div className="session-attendance">
+                    <div className="chips">
+                      {players.map((p) => {
+                        const isOut = outIds.includes(p.id);
+                        return (
+                          <button
+                            key={p.id}
+                            className={
+                              "chip " +
+                              (isOut ? "out" : "in") +
+                              (p.id === me ? " is-you" : "")
+                            }
+                            title={p.name + (isOut ? " — can't make it" : " — in")}
+                            onClick={() => (me ? toggle(session, p.id) : setPickerOpen(true))}
+                            disabled={Boolean(me) && p.id !== me}
+                          >
+                            {p.name.slice(0, 2).toUpperCase()}
+                          </button>
+                        );
+                      })}
+                      {sessionSubs.map((sub) => (
+                        <button key={sub.id} className="chip substitute" title={`${sub.name} — substitute`} onClick={() => removeSubstitute(session.key, sub.id)}>
+                          {sub.name.slice(0, 2).toUpperCase()}
                         </button>
-                      );
-                    })}
-                    {sessionSubs.map((sub) => (
-                      <button key={sub.id} className="chip substitute" title={`${sub.name} — substitute`} onClick={() => removeSubstitute(session.key, sub.id)}>
-                        {sub.name.slice(0, 2).toUpperCase()}
-                      </button>
-                    ))}
+                      ))}
+                    </div>
+                    {sessionSubs.length > 0 && <p className="sub-list">Joining: {sessionSubs.map((sub) => sub.name).join(", ")}</p>}
+                    <SubstituteForm disabled={participantCount >= 4} onAdd={(name) => addSubstitute(session.key, name)} />
                   </div>
-                  {sessionSubs.length > 0 && <p className="sub-list">Joining: {sessionSubs.map((sub) => sub.name).join(", ")}</p>}
-                  <SubstituteForm disabled={participantCount >= 4} onAdd={(name) => addSubstitute(session.key, name)} />
                 </div>
               );
             })}
