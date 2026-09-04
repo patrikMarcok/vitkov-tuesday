@@ -86,7 +86,67 @@
 .whoami-name {
   font-family: var(--font-display);
   font-size: 18px;
-  color: var(--amber);
+  }
+  @media (max-width: 640px) {
+    #root {
+      padding-right: 14px;
+      padding-left: 14px;
+    }
+
+    .hero {
+      padding-top: 32px;
+    }
+
+    .hero-meta {
+      align-items: flex-start;
+      gap: 16px;
+    }
+
+    .hero-meta-item strong {
+      font-size: 19px;
+    }
+
+    .settings-button {
+      margin-left: 0;
+    }
+
+    .whoami {
+      align-items: flex-start;
+      padding: 12px 14px;
+    }
+
+    .whoami-label {
+      line-height: 1.4;
+    }
+
+    .session-card {
+      align-items: flex-start;
+      gap: 12px;
+      padding: 13px 12px;
+    }
+
+    .session-date {
+      flex-basis: 44px;
+    }
+
+    .session-date .day-num {
+      font-size: 27px;
+    }
+
+    .session-info {
+      padding-top: 2px;
+    }
+
+    .session-time {
+      line-height: 1.35;
+    }
+
+    .session-attendance {
+      flex-basis: 100%;
+      min-width: 0;
+      padding-left: 56px;
+    }
+
 }
 
 .whoami-switch {
@@ -567,19 +627,69 @@
   padding: 10px 16px;
 }
 
-@media (max-width: 480px) {
+@media (max-width: 640px) {
+  #root {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+
   .hero-title {
     font-size: 42px;
   }
 
+  .hero {
+    padding-top: 32px;
+  }
+
+  .hero-meta {
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .hero-meta-item strong {
+    font-size: 19px;
+  }
+
+  .settings-button {
+    margin-left: 0;
+  }
+
+  .whoami {
+    align-items: flex-start;
+    padding: 12px 14px;
+  }
+
+  .whoami-label {
+    line-height: 1.4;
+  }
+
   .session-card {
+    align-items: flex-start;
     flex-wrap: wrap;
+    gap: 12px;
+    padding: 13px 12px;
+  }
+
+  .session-date {
+    flex-basis: 44px;
+  }
+
+  .session-date .day-num {
+    font-size: 27px;
+  }
+
+  .session-info {
+    padding-top: 2px;
+  }
+
+  .session-time {
+    line-height: 1.35;
   }
 
   .session-attendance {
     flex-basis: 100%;
     min-width: 0;
-    padding-left: 68px;
+    padding-left: 56px;
   }
 
   .chips {
@@ -595,6 +705,18 @@
 
   .sub-list {
     order: 3;
+  }
+
+  .picker-backdrop {
+    padding: 14px;
+  }
+
+  .picker-card {
+    padding: 24px 20px;
+  }
+
+  .picker-btn {
+    padding: 13px 8px;
   }
 
   .stat-row {
