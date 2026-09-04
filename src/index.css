@@ -1,0 +1,67 @@
+:root {
+  --court-navy: #14212b;
+  --court-navy-deep: #0e171f;
+  --card-slate: #1e2f3b;
+  --card-slate-hover: #243845;
+  --line: #2c4048;
+  --chalk: #f2ede4;
+  --chalk-dim: #c7d3d6;
+  --muted: #8fa3ac;
+  --amber: #e3a23c;
+  --amber-dim: #6b5327;
+  --sage: #6fa287;
+  --sage-dim: #2c3f34;
+  --clay: #c15b44;
+  --clay-dim: #422a24;
+
+  --font-display: "Barlow Condensed", sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--court-navy);
+  background-image: radial-gradient(
+    circle at 15% 0%,
+    rgba(227, 162, 60, 0.06),
+    transparent 45%
+  );
+  color: var(--chalk);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+#root {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 0 20px 80px;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+}
+
+::selection {
+  background: var(--amber-dim);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
