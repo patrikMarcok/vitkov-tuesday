@@ -547,6 +547,17 @@
   line-height: 1.5;
 }
 
+.error-banner {
+  background: var(--clay-dim);
+  border: 1px solid var(--clay);
+  border-radius: 8px;
+  color: var(--chalk);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 20px;
+  padding: 10px 16px;
+}
+
 @media (max-width: 480px) {
   .hero-title {
     font-size: 42px;

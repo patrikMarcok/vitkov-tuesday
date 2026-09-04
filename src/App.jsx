@@ -40,6 +40,7 @@ export default function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [newPlayer, setNewPlayer] = useState("");
   const [showPast, setShowPast] = useState(false);
+  const [attendanceError, setAttendanceError] = useState("");
 
   useEffect(() => {
     let unsub;
@@ -106,7 +107,12 @@ export default function App() {
   async function toggle(session, playerId) {
     if (playerId !== me) return;
     const isOut = Boolean(attendance[session.dateKey]?.[playerId]);
-    await setOut(session.dateKey, playerId, !isOut);
+    setAttendanceError("");
+    try {
+      await setOut(session.dateKey, playerId, !isOut);
+    } catch {
+      setAttendanceError("Attendance could not be saved. Check your Firestore rules, then try again.");
+    }
   }
 
   const meName = players.find((p) => p.id === me)?.name;
@@ -151,6 +157,8 @@ export default function App() {
           everyone sees the same schedule.
         </p>
       )}
+
+      {attendanceError && <p className="error-banner">{attendanceError}</p>}
 
       {me && (
         <div className="whoami">
