@@ -38,13 +38,13 @@ export const EXCLUDED_DATES = [
 // See README.md for how to create a free Firebase project and fill this
 // in. Until you do, the app runs in local-only demo mode (attendance is
 // stored in your browser only and won't sync between players).
-export const FIREBASE_CONFIG = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: "",
+export const firebaseConfig = {
+  apiKey: "AIzaSyCFKeOz3kFVw5CqwRDApwwhm6aAKJOsmeU",
+  authDomain: "vitkov-tuesday.firebaseapp.com",
+  projectId: "vitkov-tuesday",
+  storageBucket: "vitkov-tuesday.firebasestorage.app",
+  messagingSenderId: "795839312344",
+  appId: "1:795839312344:web:b4897e1be6673708b482ad"
 };
 
 export const IS_FIREBASE_CONFIGURED = Boolean(FIREBASE_CONFIG.projectId);
