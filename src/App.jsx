@@ -41,6 +41,7 @@ export default function App() {
   const [newPlayer, setNewPlayer] = useState("");
   const [showPast, setShowPast] = useState(false);
   const [attendanceError, setAttendanceError] = useState("");
+  const [rosterSaved, setRosterSaved] = useState(false);
 
   useEffect(() => {
     let unsub;
@@ -90,8 +91,10 @@ export default function App() {
   async function savePlayers(nextPlayers) {
     setPlayers(nextPlayers);
     localStorage.setItem(PLAYERS_KEY, JSON.stringify(nextPlayers));
+    setRosterSaved(false);
     try {
       await saveRoster(nextPlayers);
+      setRosterSaved(true);
     } catch {
       setAttendanceError("Player names could not be shared. Check your Firestore rules, then try again.");
     }
@@ -361,6 +364,7 @@ export default function App() {
               {players.map((player) => <label key={player.id}><span>{player.name}</span><input defaultValue={player.name} onBlur={(event) => renamePlayer(player.id, event.target.value)} /></label>)}
             </div>
             <form className="add-player" onSubmit={addPlayer}><input value={newPlayer} onChange={(event) => setNewPlayer(event.target.value)} placeholder={players.length >= 4 ? "Roster is full" : "New player name"} aria-label="New player name" disabled={players.length >= 4} /><button type="submit" disabled={players.length >= 4}>Add player</button></form>
+            {rosterSaved && <p className="save-confirmation">Names shared with everyone.</p>}
           </div>
         </div>
       )}
