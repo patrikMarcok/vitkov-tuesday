@@ -33,8 +33,8 @@ in their own browser (a "demo mode" banner will show).
    `</>` (web) icon, register the app (no need for Firebase Hosting), and
    copy the `firebaseConfig` object it gives you.
 4. Paste those values into `FIREBASE_CONFIG` in `src/config.js`.
-5. In Firestore's **Rules** tab, use something like this so only the
-   `attendance` collection is writable, without needing logins (fine for
+5. In Firestore's **Rules** tab, use something like this so the
+   `attendance` and `settings` collections are writable, without needing logins (fine for
    a private link shared with 4 friends):
 
    ```
@@ -44,6 +44,9 @@ in their own browser (a "demo mode" banner will show).
        match /attendance/{sessionId} {
          allow read, write: if true;
        }
+         match /settings/{settingId} {
+            allow read, write: if true;
+         }
      }
    }
    ```

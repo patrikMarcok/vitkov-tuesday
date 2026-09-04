@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { PLAYERS, SERIES, IS_FIREBASE_CONFIGURED } from "./config";
 import { generateSessions, groupByMonth } from "./sessions";
-import { subscribeAttendance, setOut } from "./firebase";
+import { subscribeAttendance, subscribeRoster, saveRoster, setOut } from "./firebase";
 import "./App.css";
 
 const ME_KEY = "training-schedule:me";
@@ -50,6 +50,26 @@ export default function App() {
     return () => unsub && unsub();
   }, []);
 
+  useEffect(() => {
+    let unsub;
+    subscribeRoster((data) => {
+      if (data?.length) {
+        setPlayers(data);
+        localStorage.setItem(PLAYERS_KEY, JSON.stringify(data));
+      } else {
+        const localPlayers = readStorage(PLAYERS_KEY, PLAYERS);
+        if (JSON.stringify(localPlayers) !== JSON.stringify(PLAYERS)) {
+          saveRoster(localPlayers).catch(() => {
+            setAttendanceError("Player names could not be shared. Check your Firestore rules, then try again.");
+          });
+        }
+      }
+    }).then((fn) => {
+      unsub = fn;
+    });
+    return () => unsub && unsub();
+  }, []);
+
   const today = new Date();
   today.setHours(0, 0, 0, 0);
 
@@ -67,9 +87,14 @@ export default function App() {
     setPickerOpen(false);
   }
 
-  function savePlayers(nextPlayers) {
+  async function savePlayers(nextPlayers) {
     setPlayers(nextPlayers);
     localStorage.setItem(PLAYERS_KEY, JSON.stringify(nextPlayers));
+    try {
+      await saveRoster(nextPlayers);
+    } catch {
+      setAttendanceError("Player names could not be shared. Check your Firestore rules, then try again.");
+    }
   }
 
   function addPlayer(event) {

@@ -4,6 +4,7 @@ import { FIREBASE_CONFIG, IS_FIREBASE_CONFIGURED } from "./config";
 // README.md). Lets you try the app immediately; attendance just won't be
 // shared between devices yet.
 const LOCAL_KEY = "training-schedule:attendance";
+const LOCAL_ROSTER_KEY = "training-schedule:players";
 
 function readLocal() {
   try {
@@ -15,6 +16,14 @@ function readLocal() {
 
 function writeLocal(data) {
   localStorage.setItem(LOCAL_KEY, JSON.stringify(data));
+}
+
+function readLocalRoster() {
+  try {
+    return JSON.parse(localStorage.getItem(LOCAL_ROSTER_KEY) || "null");
+  } catch {
+    return null;
+  }
 }
 
 let firestoreApi = null;
@@ -58,6 +67,36 @@ export async function subscribeAttendance(onData) {
     onData(data);
   });
   return unsub;
+}
+
+// Subscribes to the shared roster. A missing document means the app should
+// use its configured default roster until someone saves player settings.
+export async function subscribeRoster(onData) {
+  const api = await getFirestoreApi();
+
+  if (!api) {
+    onData(readLocalRoster());
+    const handler = (e) => {
+      if (e.key === LOCAL_ROSTER_KEY) onData(readLocalRoster());
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }
+
+  const { db, doc, onSnapshot } = api;
+  return onSnapshot(doc(db, "settings", "roster"), (snapshot) => {
+    onData(snapshot.exists() ? snapshot.data().players : null);
+  });
+}
+
+export async function saveRoster(players) {
+  const api = await getFirestoreApi();
+  localStorage.setItem(LOCAL_ROSTER_KEY, JSON.stringify(players));
+
+  if (!api) return;
+
+  const { db, doc, setDoc } = api;
+  await setDoc(doc(db, "settings", "roster"), { players });
 }
 
 // Toggles whether `playerId` is marked out for `dateKey`.
