@@ -5,6 +5,7 @@ import { FIREBASE_CONFIG, IS_FIREBASE_CONFIGURED } from "./config";
 // shared between devices yet.
 const LOCAL_KEY = "training-schedule:attendance";
 const LOCAL_ROSTER_KEY = "training-schedule:players";
+const LOCAL_FINANCE_KEY = "training-schedule:absence-fee";
 
 function readLocal() {
   try {
@@ -97,6 +98,36 @@ export async function saveRoster(players) {
 
   const { db, doc, setDoc } = api;
   await setDoc(doc(db, "settings", "roster"), { players });
+}
+
+export async function subscribeFinance(onData) {
+  const api = await getFirestoreApi();
+
+  if (!api) {
+    const localFee = Number(localStorage.getItem(LOCAL_FINANCE_KEY));
+    onData(Number.isFinite(localFee) && localFee >= 0 ? localFee : 300);
+    const handler = (e) => {
+      if (e.key === LOCAL_FINANCE_KEY) onData(Number(e.newValue) || 300);
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }
+
+  const { db, doc, onSnapshot } = api;
+  return onSnapshot(doc(db, "settings", "finance"), (snapshot) => {
+    const fee = snapshot.data()?.absenceFee;
+    onData(Number.isFinite(fee) && fee >= 0 ? fee : 300);
+  });
+}
+
+export async function saveAbsenceFee(fee) {
+  const api = await getFirestoreApi();
+  localStorage.setItem(LOCAL_FINANCE_KEY, String(fee));
+
+  if (!api) return;
+
+  const { db, doc, setDoc } = api;
+  await setDoc(doc(db, "settings", "finance"), { absenceFee: fee }, { merge: true });
 }
 
 // Toggles whether `playerId` is marked out for `dateKey`.

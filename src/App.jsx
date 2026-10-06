@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { PLAYERS, SERIES, IS_FIREBASE_CONFIGURED } from "./config";
 import { generateSessions, groupByMonth } from "./sessions";
-import { subscribeAttendance, subscribeRoster, saveRoster, setOut } from "./firebase";
+import { subscribeAttendance, subscribeRoster, saveRoster, subscribeFinance, saveAbsenceFee, setOut } from "./firebase";
 import "./App.css";
 
 const ME_KEY = "training-schedule:me";
 const PLAYERS_KEY = "training-schedule:players";
 const SUBS_KEY = "training-schedule:subs";
+const DEFAULT_ABSENCE_FEE = 300;
 
 function readStorage(key, fallback) {
   try {
@@ -42,10 +43,24 @@ export default function App() {
   const [showPast, setShowPast] = useState(false);
   const [attendanceError, setAttendanceError] = useState("");
   const [rosterSaved, setRosterSaved] = useState(false);
+  const [absenceFee, setAbsenceFee] = useState(DEFAULT_ABSENCE_FEE);
+  const [feeInput, setFeeInput] = useState(String(DEFAULT_ABSENCE_FEE));
+  const [financeSaved, setFinanceSaved] = useState(false);
 
   useEffect(() => {
     let unsub;
     subscribeAttendance((data) => setAttendance(data)).then((fn) => {
+      unsub = fn;
+    });
+    return () => unsub && unsub();
+  }, []);
+
+  useEffect(() => {
+    let unsub;
+    subscribeFinance((fee) => {
+      setAbsenceFee(fee);
+      setFeeInput(String(fee));
+    }).then((fn) => {
       unsub = fn;
     });
     return () => unsub && unsub();
@@ -100,6 +115,20 @@ export default function App() {
     }
   }
 
+  async function saveFee(event) {
+    event.preventDefault();
+    const fee = Number(feeInput);
+    if (!Number.isFinite(fee) || fee < 0) return;
+    setAttendanceError("");
+    try {
+      await saveAbsenceFee(fee);
+      setAbsenceFee(fee);
+      setFinanceSaved(true);
+    } catch {
+      setAttendanceError("The absence fee could not be shared. Check your Firestore rules, then try again.");
+    }
+  }
+
   function addPlayer(event) {
     event.preventDefault();
     const name = newPlayer.trim();
@@ -150,6 +179,8 @@ export default function App() {
     const missed = completedSessions.filter((session) => attendance[session.dateKey]?.[player.id]).length;
     return { ...player, attended: completedSessions.length - missed, missed };
   });
+  const totalBuffer = playerStats.reduce((total, player) => total + player.missed * absenceFee, 0);
+  const formatKc = (amount) => `${amount.toLocaleString("cs-CZ")} Kč`;
 
   return (
     <>
@@ -263,6 +294,7 @@ export default function App() {
                   <div className="session-info">
                     <p className="session-time">
                       {session.startTime}–{session.endTime} · {session.label}
+                      {session.date < today && <span className="past-badge">Past · editable</span>}
                     </p>
                     <p
                       className={
@@ -325,6 +357,32 @@ export default function App() {
             return <div className="stat-row" key={player.id}><span>{player.name}</span><div className="stat-bar"><i style={{ width: `${percentage}%` }} /></div><strong>{percentage}%</strong><small>{player.attended} attended · {player.missed} missed</small></div>;
           })}
         </div>
+      </section>
+
+      <section className="finance-section">
+        <div className="section-heading">
+          <div><p className="section-kicker">Completed absences</p><h2>Team buffer</h2></div>
+          <strong className="finance-total">{formatKc(totalBuffer)}</strong>
+        </div>
+        <form className="fee-form" onSubmit={saveFee}>
+          <label htmlFor="absence-fee">Charge per missed training</label>
+          <div className="fee-input-wrap">
+            <input id="absence-fee" type="number" min="0" step="50" value={feeInput} onChange={(event) => { setFeeInput(event.target.value); setFinanceSaved(false); }} />
+            <span>Kč</span>
+          </div>
+          <button type="submit">Save fee</button>
+          {financeSaved && <span className="save-confirmation">Shared</span>}
+        </form>
+        <div className="finance-list">
+          {playerStats.map((player) => (
+            <div className="finance-row" key={player.id}>
+              <span className="finance-player">{player.name}</span>
+              <span className="finance-missed">{player.missed} missed × {formatKc(absenceFee)}</span>
+              <strong>{formatKc(player.missed * absenceFee)}</strong>
+            </div>
+          ))}
+        </div>
+        <p className="finance-note">Only completed trainings count. Each marked absence adds the fee to that player’s buffer.</p>
       </section>
 
       {pickerOpen && (
