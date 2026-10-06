@@ -1,42 +1,33 @@
 import { useEffect, useMemo, useState } from "react";
-import { PLAYERS, SERIES, IS_FIREBASE_CONFIGURED } from "./config";
-import { generateSessions, groupByMonth } from "./sessions";
-import { subscribeAttendance, subscribeRoster, saveRoster, subscribeFinance, saveAbsenceFee, setOut } from "./firebase";
+import { PLAYERS, IS_FIREBASE_CONFIGURED } from "./config";
+import { generateSessions, groupByMonth } from "./lib/sessions";
+import { readStorage, STORAGE_KEYS } from "./lib/storage";
+import { formatKc, seasonLabel } from "./lib/formatters";
+import {
+  subscribeAttendance,
+  subscribeRoster,
+  saveRoster,
+  subscribeFinance,
+  saveAbsenceFee,
+  setOut,
+} from "./lib/firebase";
+import SiteHeader from "./components/SiteHeader";
+import TrainingSchedule from "./components/TrainingSchedule";
+import AttendanceStats from "./components/AttendanceStats";
+import FinancePanel from "./components/FinancePanel";
+import { PlayerPicker, PlayerSettings } from "./components/PlayerDialogs";
 import "./App.css";
 
-const ME_KEY = "training-schedule:me";
-const PLAYERS_KEY = "training-schedule:players";
-const SUBS_KEY = "training-schedule:subs";
 const DEFAULT_ABSENCE_FEE = 300;
-
-function readStorage(key, fallback) {
-  try {
-    return JSON.parse(localStorage.getItem(key) || JSON.stringify(fallback));
-  } catch {
-    return fallback;
-  }
-}
-
-function seasonLabel() {
-  const first = SERIES[0];
-  if (!first) return "";
-  const fmt = (iso) =>
-    new Date(iso).toLocaleDateString(undefined, {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
-  return `${fmt(first.seasonStart)} – ${fmt(first.seasonEnd)}`;
-}
 
 export default function App() {
   const sessions = useMemo(() => generateSessions(), []);
   const grouped = useMemo(() => groupByMonth(sessions), [sessions]);
 
   const [attendance, setAttendance] = useState({});
-  const [players, setPlayers] = useState(() => readStorage(PLAYERS_KEY, PLAYERS));
-  const [substitutes, setSubstitutes] = useState(() => readStorage(SUBS_KEY, {}));
-  const [me, setMe] = useState(() => localStorage.getItem(ME_KEY) || "");
+  const [players, setPlayers] = useState(() => readStorage(STORAGE_KEYS.players, PLAYERS));
+  const [substitutes, setSubstitutes] = useState(() => readStorage(STORAGE_KEYS.substitutes, {}));
+  const [me, setMe] = useState(() => localStorage.getItem(STORAGE_KEYS.me) || "");
   const [pickerOpen, setPickerOpen] = useState(!me);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [newPlayer, setNewPlayer] = useState("");
@@ -71,9 +62,9 @@ export default function App() {
     subscribeRoster((data) => {
       if (data?.length) {
         setPlayers(data);
-        localStorage.setItem(PLAYERS_KEY, JSON.stringify(data));
+        localStorage.setItem(STORAGE_KEYS.players, JSON.stringify(data));
       } else {
-        const localPlayers = readStorage(PLAYERS_KEY, PLAYERS);
+        const localPlayers = readStorage(STORAGE_KEYS.players, PLAYERS);
         if (JSON.stringify(localPlayers) !== JSON.stringify(PLAYERS)) {
           saveRoster(localPlayers).catch(() => {
             setAttendanceError("Player names could not be shared. Check your Firestore rules, then try again.");
@@ -92,20 +83,20 @@ export default function App() {
   const nextSession = sessions.find((s) => s.date >= today);
 
   function choosePlayer(id) {
-    localStorage.setItem(ME_KEY, id);
+    localStorage.setItem(STORAGE_KEYS.me, id);
     setMe(id);
     setPickerOpen(false);
   }
 
   function chooseGuest() {
-    localStorage.setItem(ME_KEY, "");
+    localStorage.setItem(STORAGE_KEYS.me, "");
     setMe("");
     setPickerOpen(false);
   }
 
   async function savePlayers(nextPlayers) {
     setPlayers(nextPlayers);
-    localStorage.setItem(PLAYERS_KEY, JSON.stringify(nextPlayers));
+    localStorage.setItem(STORAGE_KEYS.players, JSON.stringify(nextPlayers));
     setRosterSaved(false);
     try {
       await saveRoster(nextPlayers);
@@ -152,13 +143,13 @@ export default function App() {
     if (confirmedCount >= 4) return;
     const next = { ...substitutes, [sessionKey]: [...(substitutes[sessionKey] || []), { id: `sub-${(substitutes[sessionKey] || []).length + 1}`, name: trimmedName }] };
     setSubstitutes(next);
-    localStorage.setItem(SUBS_KEY, JSON.stringify(next));
+    localStorage.setItem(STORAGE_KEYS.substitutes, JSON.stringify(next));
   }
 
   function removeSubstitute(sessionKey, subId) {
     const next = { ...substitutes, [sessionKey]: (substitutes[sessionKey] || []).filter((sub) => sub.id !== subId) };
     setSubstitutes(next);
-    localStorage.setItem(SUBS_KEY, JSON.stringify(next));
+    localStorage.setItem(STORAGE_KEYS.substitutes, JSON.stringify(next));
   }
 
   async function toggle(session, playerId) {
@@ -180,73 +171,40 @@ export default function App() {
     return { ...player, attended: completedSessions.length - missed, missed };
   });
   const totalBuffer = playerStats.reduce((total, player) => total + player.missed * absenceFee, 0);
-  const formatKc = (amount) => `${amount.toLocaleString("cs-CZ")} Kč`;
 
   return (
     <>
-      <header className="hero">
-        <p className="hero-eyebrow">Training schedule</p>
-        <h1 className="hero-title">
-          Tuesdays <span className="accent">19:00–20:30</span>
-        </h1>
-        <div className="hero-meta">
-          <div className="hero-meta-item">
-            Season
-            <strong>{seasonLabel()}</strong>
-          </div>
-          {nextSession && (
-            <div className="hero-meta-item">
-              Next session
-              <strong>
-                {nextSession.date.toLocaleDateString(undefined, {
-                  weekday: "short",
-                  day: "numeric",
-                  month: "short",
-                })}
-              </strong>
-            </div>
-          )}
-          <button className="settings-button" onClick={() => setSettingsOpen(true)}>Players</button>
-        </div>
-      </header>
+      <SiteHeader
+        season={seasonLabel()}
+        nextSession={nextSession}
+        onOpenPlayers={() => setSettingsOpen(true)}
+      />
 
       {!IS_FIREBASE_CONFIGURED && (
         <p className="demo-banner">
-          Demo mode: no database is connected yet, so ticks only save in
-          this browser. See README.md to connect a free Firebase project so
-          everyone sees the same schedule.
+          Demo mode: no database is connected yet, so ticks only save in this browser.
+          See README.md to connect a free Firebase project so everyone sees the same schedule.
         </p>
       )}
-
       {attendanceError && <p className="error-banner">{attendanceError}</p>}
 
-      {me && (
+      {me ? (
         <div className="whoami">
           <span className="whoami-label">
-            You're marking attendance as{" "}
-            <span className="whoami-name">{meName}</span>
+            You're marking attendance as <span className="whoami-name">{meName}</span>
           </span>
-          <button className="whoami-switch" onClick={() => setPickerOpen(true)}>
-            switch
-          </button>
+          <button className="whoami-switch" onClick={() => setPickerOpen(true)}>switch</button>
         </div>
-      )}
-      {!me && !pickerOpen && (
+      ) : !pickerOpen ? (
         <div className="whoami">
           <span className="whoami-label">Choose your name to mark attendance</span>
-          <button className="whoami-switch" onClick={() => setPickerOpen(true)}>
-            I'm a player
-          </button>
+          <button className="whoami-switch" onClick={() => setPickerOpen(true)}>I'm a player</button>
         </div>
-      )}
+      ) : null}
 
       <div className="legend">
-        <span className="legend-item">
-          <span className="legend-dot in" /> confirmed
-        </span>
-        <span className="legend-item">
-          <span className="legend-dot out" /> can't make it
-        </span>
+        <span className="legend-item"><span className="legend-dot in" /> confirmed</span>
+        <span className="legend-item"><span className="legend-dot out" /> can't make it</span>
         <span className="legend-item">tap your own circle to toggle</span>
       </div>
 
@@ -257,185 +215,60 @@ export default function App() {
         </button>
       </div>
 
-      {grouped.map((group) => (
-        (() => {
-          const visibleSessions = group.sessions.filter((session) => showPast || session.date >= today);
-          if (!visibleSessions.length) return null;
-          return <div className="month-group" key={group.monthKey}>
-          <h2 className="month-label">{group.label}</h2>
-          <div className="session-list">
-            {visibleSessions.map((session) => {
-              const outIds = Object.keys(
-                attendance[session.dateKey] || {}
-              ).filter((id) => attendance[session.dateKey][id]);
-              const availableCount = players.length - outIds.length;
-              const sessionSubs = substitutes[session.key] || [];
-              const participantCount = availableCount + sessionSubs.length;
-
-              return (
-                <div
-                  className={
-                    "session-card" +
-                    (nextSession && session.key === nextSession.key
-                      ? " is-next"
-                      : "") +
-                    (session.date < today ? " is-past" : "")
-                  }
-                  key={session.key}
-                >
-                  <div className="session-date">
-                    <span className="day-num">{session.date.getDate()}</span>
-                    <span className="day-name">
-                      {session.date.toLocaleDateString(undefined, {
-                        weekday: "short",
-                      })}
-                    </span>
-                  </div>
-                  <div className="session-info">
-                    <p className="session-time">
-                      {session.startTime}–{session.endTime} · {session.label}
-                      {session.date < today && <span className="past-badge">Past · editable</span>}
-                    </p>
-                    <p
-                      className={
-                        "session-status" +
-                        (participantCount < 4 ? " short" : "")
-                      }
-                    >
-                      {participantCount}/4 attending
-                    </p>
-                  </div>
-                  <div className="session-attendance">
-                    <div className="chips">
-                      {players.map((p) => {
-                        const isOut = outIds.includes(p.id);
-                        return (
-                          <button
-                            key={p.id}
-                            className={
-                              "chip " +
-                              (isOut ? "out" : "in") +
-                              (p.id === me ? " is-you" : "")
-                            }
-                            title={p.name + (isOut ? " — can't make it" : " — in")}
-                            onClick={() => (me ? toggle(session, p.id) : setPickerOpen(true))}
-                            disabled={Boolean(me) && p.id !== me}
-                          >
-                            {p.name.slice(0, 2).toUpperCase()}
-                          </button>
-                        );
-                      })}
-                      {sessionSubs.map((sub) => (
-                        <button key={sub.id} className="chip substitute" title={`${sub.name} — substitute`} onClick={() => removeSubstitute(session.key, sub.id)}>
-                          {sub.name.slice(0, 2).toUpperCase()}
-                        </button>
-                      ))}
-                    </div>
-                    {sessionSubs.length > 0 && <p className="sub-list">Joining: {sessionSubs.map((sub) => sub.name).join(", ")}</p>}
-                    <SubstituteForm listId={`previous-substitutes-${session.key}`} suggestions={previousSubstitutes} disabled={participantCount >= 4} onAdd={(name) => addSubstitute(session.key, name)} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>;
-        })()
-      ))}
+      <TrainingSchedule
+        grouped={grouped}
+        attendance={attendance}
+        players={players}
+        substitutes={substitutes}
+        me={me}
+        nextSession={nextSession}
+        today={today}
+        showPast={showPast}
+        onChoosePlayer={() => setPickerOpen(true)}
+        onToggle={toggle}
+        onRemoveSubstitute={removeSubstitute}
+        onAddSubstitute={addSubstitute}
+        previousSubstitutes={previousSubstitutes}
+      />
 
       <p className="footer-note">
         Substitute names and player settings are saved in this browser. Attendance is shared when Firebase is connected.
       </p>
 
-      <section className="stats-section">
-        <div className="section-heading">
-          <div><p className="section-kicker">The season so far</p><h2>Attendance</h2></div>
-          <span className="stats-total">{completedSessions.length} completed</span>
-        </div>
-        <div className="stats-list">
-          {playerStats.map((player) => {
-            const percentage = completedSessions.length ? Math.round((player.attended / completedSessions.length) * 100) : 0;
-            return <div className="stat-row" key={player.id}><span>{player.name}</span><div className="stat-bar"><i style={{ width: `${percentage}%` }} /></div><strong>{percentage}%</strong><small>{player.attended} attended · {player.missed} missed</small></div>;
-          })}
-        </div>
-      </section>
-
-      <section className="finance-section">
-        <div className="section-heading">
-          <div><p className="section-kicker">Completed absences</p><h2>Team buffer</h2></div>
-          <strong className="finance-total">{formatKc(totalBuffer)}</strong>
-        </div>
-        <form className="fee-form" onSubmit={saveFee}>
-          <label htmlFor="absence-fee">Charge per missed training</label>
-          <div className="fee-input-wrap">
-            <input id="absence-fee" type="number" min="0" step="50" value={feeInput} onChange={(event) => { setFeeInput(event.target.value); setFinanceSaved(false); }} />
-            <span>Kč</span>
-          </div>
-          <button type="submit">Save fee</button>
-          {financeSaved && <span className="save-confirmation">Shared</span>}
-        </form>
-        <div className="finance-list">
-          {playerStats.map((player) => (
-            <div className="finance-row" key={player.id}>
-              <span className="finance-player">{player.name}</span>
-              <span className="finance-missed">{player.missed} missed × {formatKc(absenceFee)}</span>
-              <strong>{formatKc(player.missed * absenceFee)}</strong>
-            </div>
-          ))}
-        </div>
-        <p className="finance-note">Only completed trainings count. Each marked absence adds the fee to that player’s buffer.</p>
-      </section>
+      <AttendanceStats completedCount={completedSessions.length} playerStats={playerStats} />
+      <FinancePanel
+        totalBuffer={totalBuffer}
+        playerStats={playerStats}
+        absenceFee={absenceFee}
+        feeInput={feeInput}
+        financeSaved={financeSaved}
+        onFeeChange={(event) => {
+          setFeeInput(event.target.value);
+          setFinanceSaved(false);
+        }}
+        onSaveFee={saveFee}
+        formatKc={formatKc}
+      />
 
       {pickerOpen && (
-        <div className="picker-backdrop" onClick={() => me && setPickerOpen(false)}>
-          <div className="picker-card" onClick={(e) => e.stopPropagation()}>
-            <h2 className="picker-title">Who are you?</h2>
-            <p className="picker-sub">
-              Pick your name so you can mark yourself out — you'll only be
-              able to change your own attendance.
-            </p>
-            <div className="picker-grid">
-              {players.map((p) => (
-                <button
-                  key={p.id}
-                  className="picker-btn"
-                  onClick={() => choosePlayer(p.id)}
-                >
-                  {p.name}
-                </button>
-              ))}
-            </div>
-            <button className="picker-guest" onClick={chooseGuest}>
-              Just viewing, thanks
-            </button>
-          </div>
-        </div>
+        <PlayerPicker
+          players={players}
+          onChoose={choosePlayer}
+          onGuest={chooseGuest}
+          onClose={() => me && setPickerOpen(false)}
+        />
       )}
-
       {settingsOpen && (
-        <div className="picker-backdrop" onClick={() => setSettingsOpen(false)}>
-          <div className="picker-card settings-card" onClick={(e) => e.stopPropagation()}>
-            <button className="modal-close" onClick={() => setSettingsOpen(false)} aria-label="Close">×</button>
-            <p className="section-kicker">Roster</p>
-            <h2 className="picker-title">Player settings</h2>
-            <p className="picker-sub">Names are stored on this device. Adding a player creates a new attendance identity.</p>
-            <div className="roster-list">
-              {players.map((player) => <label key={player.id}><span>{player.name}</span><input defaultValue={player.name} onBlur={(event) => renamePlayer(player.id, event.target.value)} /></label>)}
-            </div>
-            <form className="add-player" onSubmit={addPlayer}><input value={newPlayer} onChange={(event) => setNewPlayer(event.target.value)} placeholder={players.length >= 4 ? "Roster is full" : "New player name"} aria-label="New player name" disabled={players.length >= 4} /><button type="submit" disabled={players.length >= 4}>Add player</button></form>
-            {rosterSaved && <p className="save-confirmation">Names shared with everyone.</p>}
-          </div>
-        </div>
+        <PlayerSettings
+          players={players}
+          newPlayer={newPlayer}
+          rosterSaved={rosterSaved}
+          onClose={() => setSettingsOpen(false)}
+          onRename={renamePlayer}
+          onNewPlayerChange={(event) => setNewPlayer(event.target.value)}
+          onAddPlayer={addPlayer}
+        />
       )}
     </>
   );
-}
-
-function SubstituteForm({ listId, onAdd, suggestions, disabled }) {
-  const [name, setName] = useState("");
-  function submit(event) {
-    event.preventDefault();
-    onAdd(name);
-    setName("");
-  }
-  return <form className="sub-form" onSubmit={submit}><input value={name} onChange={(event) => setName(event.target.value)} list={listId} placeholder={disabled ? "Training is full" : "Add substitute"} aria-label="Substitute name" disabled={disabled} /><datalist id={listId}>{suggestions.map((suggestion) => <option key={suggestion} value={suggestion} />)}</datalist><button type="submit" disabled={disabled}>+</button></form>;
 }

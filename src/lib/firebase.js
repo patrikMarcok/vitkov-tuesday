@@ -1,8 +1,5 @@
-import { FIREBASE_CONFIG, IS_FIREBASE_CONFIGURED } from "./config";
+import { FIREBASE_CONFIG, IS_FIREBASE_CONFIGURED } from "../config";
 
-// Local-only fallback store, used until Firebase is configured (see
-// README.md). Lets you try the app immediately; attendance just won't be
-// shared between devices yet.
 const LOCAL_KEY = "training-schedule:attendance";
 const LOCAL_ROSTER_KEY = "training-schedule:players";
 const LOCAL_FINANCE_KEY = "training-schedule:absence-fee";
@@ -43,42 +40,35 @@ async function getFirestoreApi() {
   return firestoreApi;
 }
 
-// Subscribes to attendance changes. Calls onData with a map of
-// { [dateKey]: { [playerId]: true } } whenever it changes (true = marked
-// as "can't make it"). Returns an unsubscribe function.
 export async function subscribeAttendance(onData) {
   const api = await getFirestoreApi();
 
   if (!api) {
     onData(readLocal());
-    // Poll localStorage for changes made in other tabs on this device.
-    const handler = (e) => {
-      if (e.key === LOCAL_KEY) onData(readLocal());
+    const handler = (event) => {
+      if (event.key === LOCAL_KEY) onData(readLocal());
     };
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
   }
 
   const { db, collection, onSnapshot } = api;
-  const unsub = onSnapshot(collection(db, "attendance"), (snap) => {
+  return onSnapshot(collection(db, "attendance"), (snapshot) => {
     const data = {};
-    snap.forEach((docSnap) => {
-      data[docSnap.id] = docSnap.data();
+    snapshot.forEach((document) => {
+      data[document.id] = document.data();
     });
     onData(data);
   });
-  return unsub;
 }
 
-// Subscribes to the shared roster. A missing document means the app should
-// use its configured default roster until someone saves player settings.
 export async function subscribeRoster(onData) {
   const api = await getFirestoreApi();
 
   if (!api) {
     onData(readLocalRoster());
-    const handler = (e) => {
-      if (e.key === LOCAL_ROSTER_KEY) onData(readLocalRoster());
+    const handler = (event) => {
+      if (event.key === LOCAL_ROSTER_KEY) onData(readLocalRoster());
     };
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
@@ -93,7 +83,6 @@ export async function subscribeRoster(onData) {
 export async function saveRoster(players) {
   const api = await getFirestoreApi();
   localStorage.setItem(LOCAL_ROSTER_KEY, JSON.stringify(players));
-
   if (!api) return;
 
   const { db, doc, setDoc } = api;
@@ -104,10 +93,10 @@ export async function subscribeFinance(onData) {
   const api = await getFirestoreApi();
 
   if (!api) {
-    const localFee = Number(localStorage.getItem(LOCAL_FINANCE_KEY));
-    onData(Number.isFinite(localFee) && localFee >= 0 ? localFee : 300);
-    const handler = (e) => {
-      if (e.key === LOCAL_FINANCE_KEY) onData(Number(e.newValue) || 300);
+    const fee = Number(localStorage.getItem(LOCAL_FINANCE_KEY));
+    onData(Number.isFinite(fee) && fee >= 0 ? fee : 300);
+    const handler = (event) => {
+      if (event.key === LOCAL_FINANCE_KEY) onData(Number(event.newValue) || 300);
     };
     window.addEventListener("storage", handler);
     return () => window.removeEventListener("storage", handler);
@@ -123,25 +112,20 @@ export async function subscribeFinance(onData) {
 export async function saveAbsenceFee(fee) {
   const api = await getFirestoreApi();
   localStorage.setItem(LOCAL_FINANCE_KEY, String(fee));
-
   if (!api) return;
 
   const { db, doc, setDoc } = api;
   await setDoc(doc(db, "settings", "finance"), { absenceFee: fee }, { merge: true });
 }
 
-// Toggles whether `playerId` is marked out for `dateKey`.
 export async function setOut(dateKey, playerId, isOut) {
   const api = await getFirestoreApi();
 
   if (!api) {
     const data = readLocal();
     data[dateKey] = { ...data[dateKey] };
-    if (isOut) {
-      data[dateKey][playerId] = true;
-    } else {
-      delete data[dateKey][playerId];
-    }
+    if (isOut) data[dateKey][playerId] = true;
+    else delete data[dateKey][playerId];
     writeLocal(data);
     return;
   }
